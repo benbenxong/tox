@@ -40,7 +40,7 @@
                            B = <'('> A <','> A <')'>
                            AB = A B"))
 
-(->> (parser "(s1,s2,s(d1,ÃæÉÆm1))")
+(->> (parser "(s1,s2,s(d1,é¡¶æˆ´æž¯))")
      (insta/transform {:S vector :A str :B hash-map :AB hash-map})) 
 
 
