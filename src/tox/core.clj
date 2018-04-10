@@ -26,12 +26,19 @@
     :assoc-fn (fn [m k _] (update-in m [k] inc))]
    ;; tox parameters
    ["-i" "--ifile filename" "input excel file"
-   :validate [#(re-find #"\.xls" %) "Input excel file must be .xls|.xlsx file.] "]]
-   ["-o" "--ofile filename" "output excel file"]
-   ["-s" "--sql script" "sql script file"]
-   ["-w" "--sheet workstheets" "worksheet names. exp:(sheet1,sheet2) or (sheet1(loc1,loc2),sheet1(loc3,loc4))"]
+    :validate [#(re-find #"\.xls" %) "Input excel file must be .xls|.xlsx file."]]
+   ["-o" "--ofile filename" "output excel file"
+    :validate [#(re-find #"\.xls" %) "Output excel file must be .xls|.xlsx file."]]
+   ["-s" "--sql script" "sql script file"
+    :validate [#(re-find #"\.sql" %) "Sql script file must be .sql file."]]
+   ["-w" "--sheet workstheets" "worksheet names. exp:(sheet1,sheet2) or (sheet1(loc1,loc2),sheet1(loc3,loc4))"
+    :parse-fn (fn [s] (->> (parser s)
+                    (insta/transform {:S vector :A str :B hash-map :AB hash-map})))
+   ;; :validate [#(not (vector? (first %))) (str %) ]
+   ]
    ;; A boolean option defaulting to nil
    ["-h" "--help"]])
+
 (def parser
             (insta/parser "S = <'('> members <')'>
                            <members> = member (<','> members)*
@@ -40,8 +47,7 @@
                            B = <'('> A <','> A <')'>
                            AB = A B"))
 
-(->> (parser "(s1,s2,s(d1,顶戴枯))")
-     (insta/transform {:S vector :A str :B hash-map :AB hash-map})) 
+
 
 
 (defn -main
