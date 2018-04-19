@@ -5,21 +5,23 @@
             [instaparse.core :as insta])
   (:gen-class))
 
-(def db {:classname  "oracle.jdbc.OracleDriver"
-         :subprotocol    "oracle:thin"
-         :subname        "127.0.0.1:1521:orcl" 
-         :user               "alan"
-         :password       "alan"})
+
+;; (def db {:classname  "oracle.jdbc.OracleDriver"
+;;          :subprotocol    "oracle:thin"
+;;          :subname        "127.0.0.1:1521:orcl" 
+;;          :user               "alan"
+;;          :password       "alan"})
+(def db (:db (read-string (slurp "db.conf"))))
 
 ;;(time (j/query db ["select sysdate from dual"]))
 
 (def parser
-            (insta/parser "S = <'('> members <')'>
-                           <members> = member (<','> members)*
-                           <member> = A | AB
-                           A = #'[^\\(\\)\\,]+'
-                           B = <'('> A <','> A <')'>
-                           AB = A B"))
+  (insta/parser "S = <'('> members <')'>
+                 <members> = member (<','> members)*
+                 <member> = A | AB
+                 A = #'[^\\(\\)\\,]+'
+                 B = <'('> A <','> A <')'>
+                 AB = A B"))
 
 (def cli-options
   ;; An option with a required argument
@@ -51,4 +53,4 @@
 
 (defn -main
   [& args]
-  (parse-opts args cli-options))
+  (parse-opts args cli-options)) 
