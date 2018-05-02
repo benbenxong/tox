@@ -37,10 +37,14 @@
    ;;  :assoc-fn (fn [m k _] (update-in m [k] inc))
    ;;  ]
    ;; tox parameters
-   ["-i" "--ifile filename" "input excel file"
-    :validate [#(re-find #"\.xls" %) "Input excel file must be .xls|.xlsx file."]]
-   ["-o" "--ofile filename" "output excel file"
-    :validate [#(re-find #"\.xls" %) "Output excel file must be .xls|.xlsx file."]]
+   ["-x" "--xlsfile filename" "[in|out]put excel file."
+    :validate [#(re-find #"\.xls" %) "excel file must be .xls|.xlsx file."]]
+   ["-t" "--txtfile filename" "output txt file."
+    :validate [#(re-find #"\.(csv|txt)" %) "txt file must be .csv|.txt file."]]
+   ["-d" "--delimiter delimiter" "field delimiter."
+    :default ","]
+   ["-q" "--qualifier qualifier" "field qualifier."
+    :default "\""]
    ["-s" "--sql script" "sql script file"
     :validate [#(re-find #"\.sql" %) "Sql script file must be .sql file."]]
    ["-w" "--sheet workstheets" "worksheet names. exp:(sheet1,sheet2) or (sheet1(loc1,loc2),sheet1(loc3,loc4))"
@@ -51,6 +55,63 @@
    ;; A boolean option defaulting to nil
    ["-h" "--help"]])
 
-(defn -main
-  [& args]
-  (parse-opts args cli-options)) 
+(defn usage [options-summary]
+  (->> ["数据库报表小工具tox。实现数据库与excel报表或txt文件之间数据互传。"
+	""
+	"Usage: program-name(tox) [options] action"
+	""
+	"Options:"
+	options-summary
+	""
+	"Actions:"
+	"  q2x    query to excel file."
+	"  q2c    query to csv file(s)."
+	"  x2d    excel file to db."
+	""
+	"Please refer to the manual page for more information."]
+       (str/join \newline)))
+
+(defn error-msg [errors]
+  (str "The following errors occurred while parsing your command:\n\n"
+       (str/join \newline errors)))
+
+(defn validate-args
+  "Validate command line arguments. Either return a map indicating the program
+  should exit (with a error message, and optional ok status), or a map
+  indicating the action the program should take and the options provided."
+  [args]
+  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    (cond
+      (:help options) ; help => exit OK with usage summary
+      {:exit-message (usage summary) :ok? true}
+      errors ; errors => exit with description of errors
+      {:exit-message (error-msg errors)}
+      ;; custom validation on arguments
+      (and (= 1 (count arguments))
+           (#{"q2x" "q2c" "x2d"} (first arguments)))
+      {:action (first arguments) :options options}
+      :else ; failed custom validation => exit with usage summary
+      {:exit-message (usage summary)})))
+
+(defn exit [status msg]
+  (println msg)
+  ;;(System/exit status)
+  )
+
+(defn q2x! [opts]
+	opts)
+
+(defn q2c! [opts]
+	opts)
+
+(defn x2d! [opts]
+	opts)
+
+(defn -main [& args]
+  (let [{:keys [action options exit-message ok?]} (validate-args args)]
+    (if exit-message
+      (exit (if ok? 0 1) exit-message)
+      (case action
+        "q2x" (q2x! options)
+        "q2c" (q2c! options)
+        "x2d" (x2d! options)))))
