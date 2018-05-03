@@ -1,4 +1,5 @@
 (ns tox.core
+  (:use [dk.ative.docjure.spreadsheet] :reload-all)
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.jdbc :as j]
             [clojure.string :as str]
@@ -37,10 +38,10 @@
    ;;  :assoc-fn (fn [m k _] (update-in m [k] inc))
    ;;  ]
    ;; tox parameters
-   ["-x" "--xlsfile filename" "[in|out]put excel file."
-    :validate [#(re-find #"\.xls" %) "excel file must be .xls|.xlsx file."]]
-   ["-t" "--txtfile filename" "output txt file."
-    :validate [#(re-find #"\.(csv|txt)" %) "txt file must be .csv|.txt file."]]
+   ["-i" "--infile filename" "q2x: template excel file.\nx2d: data excel&txt file."
+    :validate [#(re-find #"\.(xls|csv|txt)" %) "input file must be .xls|.xlsx|.csv|.txt file."]]
+   ["-o" "--outfile filename" "output excel&txt file."
+    :validate [#(re-find #"\.(xls|csv|txt)" %) "output file must be .xls|.xlsx|.csv|.txt file."]]
    ["-d" "--delimiter delimiter" "field delimiter."
     :default ","]
    ["-q" "--qualifier qualifier" "field qualifier."
@@ -95,8 +96,9 @@
 
 (defn exit [status msg]
   (println msg)
-  ;;(System/exit status)
+  (System/exit status)
   )
+
 
 (defn q2x! [opts]
 	opts)
