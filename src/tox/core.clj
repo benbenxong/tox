@@ -16,6 +16,15 @@
 
 ;;(time (j/query db ["select sysdate from dual"]))
 
+;; (def cells (j/query db
+;;   ["select object_name oname,object_id,created,object_type from all_objects where rownum<10"]
+;;   {:as-arrays? true :keywordize? false}))
+
+;; (let [wb (create-workbook "objects"
+;;                           cells
+;;                           )]
+;;    (save-workbook! "objects.xlsx" wb))
+
 (def parser
   (insta/parser "S = <'('> members <')'>
                  <members> = member (<','> members)*
@@ -99,7 +108,8 @@
   (System/exit status)
   )
 
-
+(defn get-sqls [opts]
+  (spit))
 (defn q2x! [opts]
 	opts)
 
