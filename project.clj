@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/tools.cli "0.3.5"]
                  [clj-time "0.14.2"]
+                 [clj-det-enc "1.0.0"]
                  [dk.ative/docjure "1.11.0"]
                  [oracle.jdbc/oracledriver "11.2.0.1"]
                  [org.clojure/java.jdbc "0.7.5"]

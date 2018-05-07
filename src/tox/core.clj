@@ -3,7 +3,8 @@
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.jdbc :as j]
             [clojure.string :as str]
-            [instaparse.core :as insta])
+            [instaparse.core :as insta]
+            [det-enc.core :as det])
   (:gen-class))
 
 
@@ -105,13 +106,17 @@
 
 (defn exit [status msg]
   (println msg)
-  (System/exit status)
+  ;;(System/exit status)
   )
 
 (defn get-sqls [opts]
-  (spit))
+  (let [sqlfile (:sql opts)
+        encoding (det/detect sqlfile "GBK")
+        sql (slurp sqlfile :encoding encoding)]
+    (and sql (str/split sql #";\s*"))))
+
 (defn q2x! [opts]
-	opts)
+  (println (get-sqls opts)))
 
 (defn q2c! [opts]
 	opts)
