@@ -4,16 +4,25 @@
             [clojure.java.jdbc :as j]
             [clojure.string :as str]
             [instaparse.core :as insta]
-            [det-enc.core :as det])
-  (:gen-class))
-
+            [det-enc.core :as det]
+            ;;[clojure.java.io :as io]
+            )
+  (:gen-class)) 
 
 ;; (def db {:classname  "oracle.jdbc.OracleDriver"
 ;;          :subprotocol    "oracle:thin"
 ;;          :subname        "127.0.0.1:1521:orcl" 
 ;;          :user               "alan"
 ;;          :password       "alan"})
-(def db (:db (read-string (slurp "db.conf"))))
+
+(def project-name
+  (nth (read-string (slurp "project.clj")) 1))
+
+(def db
+  (:db (read-string
+        (slurp (str "C:\\TEMP\\conf\\"
+                    project-name
+                    "\\db.conf")))))
 
 ;;(time (j/query db ["select sysdate from dual"]))
 
