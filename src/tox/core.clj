@@ -118,6 +118,17 @@
   ;;(System/exit status)
   )
 
+(def col-names 
+  (reduce into (into [] (for [i (cons nil "ABCD")] (into [] (for [j "ABCDEFGHIJKLMNOPQRSTUVWXYZ"] (str i j)))))))
+
+(defn set-cells [rows s]
+  (loop [i 1 r rows]
+    (if-not (first r)
+      nil
+      (do
+        (map (fn [c d] (set-cell! (select-cell (str c i)) s) d) col-names r)  
+        (recur (inc i) (rest r))))))
+
 (defn get-sqls [opts]
   (let [sqlfile (:sql opts)
         encoding (det/detect sqlfile "GBK")
@@ -128,6 +139,13 @@
  ;; (->> (load-workbook "objects.xlsx")
  ;;               (sheet-seq)
  ;;               (map sheet-name)) 
+ ;; (let [wb (load-workbook "test-temp1.xlsx")
+ ;;                s (select-sheet "Sheet1" wb)
+ ;;                c (select-cell "B2" s)]
+ ;;            (read-cell c)
+ ;;            (set-cell! c 5)
+ ;;            (read-cell c)
+ ;;            (save-workbook! "test-temp1.xlsx" wb))
 )
 (defn q2x! [opts]
   (println (get-sqls opts)))

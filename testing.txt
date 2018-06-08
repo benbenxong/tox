@@ -1,0 +1,109 @@
+(j/with-connection db 
+   (j/with-query-results rs ["select object_name,object_id,created from all_objects where rownum<10"] 
+     ; rs will be a sequence of maps, 
+     ; one for each record in the result set. 
+     (dorun (map #(println (:title %)) rs))))
+
+(def cells (j/query db
+  ["select object_name oname,object_id,created,object_type from all_objects where rownum<10"]
+  {:as-arrays? true :keywordize? false}))
+
+(let [wb (create-workbook "objects"
+                          cells
+                          )]
+   (save-workbook! "objects.xlsx" wb))
+
+(->> (load-workbook "test-temp1.xlsx")
+     (select-sheet "Sheet1")
+     (select-columns {:A :name, :B :price}))
+
+
+(->> (load-workbook "test-temp1.xlsx")
+     (select-sheet "Sheet1")
+     row-seq
+     ;;(remove nil?)
+     (map cell-seq)
+     (map #(map read-cell %)))
+
+(let [wb (load-workbook "test-temp1.xlsx")
+                 s (select-sheet "Sheet1" wb)
+                 ]
+            ;; (read-cell c)
+             (set-cell! (select-cell "A3" s) 5)
+             (set-cell! (select-cell "B11" s) 99)
+            ;;(read-cell c)
+             (save-workbook! "test-temp1.xlsx" wb))
+
+(->> (load-workbook "test-temp1.xlsx")
+     (select-sheet "Sheet1")
+     row-seq
+     ;;(remove nil?)
+     (map #(list %1 %2) (range 1 100000000))
+     (map #(for [c "ABCDEF"] (read-cell (select-cell (str c (first %)) )))))
+
+
+(let [wb (load-workbook "test-temp1.xlsx")
+                 s (select-sheet "Sheet1" wb)
+      ]           
+    (->> s
+     (row-seq)
+     (map #(list %1 %2) (range 1 100000000))
+     (map #(for [c "ABC"] (read-cell (select-cell (str c (first %)) s))))
+     (create-workbook "sheet1")
+     (save-workbook! "test-temp2.xlsx")
+     )
+     )
+
+(let [wb (load-workbook "test-temp2.xlsx")
+                 s (select-sheet "sheet1" wb)
+                 ]
+            ;; (read-cell c)
+             (set-cell! (select-cell "A3" s) "third")
+             (set-cell! (select-cell "B11" s) 99)
+            ;;(read-cell c)
+             (save-workbook! "test-temp2.xlsx" wb))
+
+(let [chars "ABCDEFGHIJKLMNOPQRSTUVWXYZ"]
+	(for [c chars] 
+		(str c)))   
+
+(reduce into (into [] (for [i (cons nil "ABCD")] (into [] (for [j "ABCDEFGHIJKLMNOPQRSTUVWXYZ"] (str i j))))))    
+
+(loop [i 1 r vvv]
+	(if-not (first r)
+	  	nil
+	  	(do 
+	  	  (println i (first r))
+	  	  (recur (inc i) (rest r)))))
+
+(defn set-cells [rows s]
+  (loop [i 1 r rows]
+    (if-not (first r)
+      nil
+      (do
+        ;;(map (fn [c d] (set-cell! (select-cell (str c i) s) d)) col-names (first r))
+        ;;(println (map (fn [c d] (read-cell (select-cell (str c i) s))) col-names (first r)))
+        (loop [n col-names c (first r)]
+          (if-not (first c)
+            nil
+            (do (set-cell! (select-cell (str (first n) i) s) (first c))
+              ;;(println (str (first n) i) (read-cell (select-cell (str (first n) i) s)))
+              (recur (rest n) (rest c)))))
+        (recur (inc i) (rest r))))))
+
+(let [wb (load-workbook "test-temp2.xlsx")
+                 s (select-sheet "sheet1" wb)
+                 ]
+            (set-cells [[11 12] [21 22]] s)
+             (save-workbook! "test-temp2.xlsx" wb)
+             )
+
+If side effects is all what is needed, I would skip the creation of lazy seqs and do it with reduce:
+
+user=> (defn mapc [f coll] (reduce (fn [_ v] (f v)) nil coll))
+#'user/mapc
+user=> (mapc println [1 2 3])
+1
+2
+3
+nil
