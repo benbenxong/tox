@@ -15,14 +15,18 @@
 ;;          :user               "alan"
 ;;          :password       "alan"})
 
-(def project-name
-  (nth (read-string (slurp "project.clj")) 1))
+(defn this-jar
+  "utility function to get the name of jar in which this function is invoked"
+  [& [ns]]
+  (-> (or ns (class *ns*))
+      .getProtectionDomain .getCodeSource .getLocation .toURI))
 
-(def db
+(def db (:db (read-string (slurp "db.conf"))))
+(defn get-db [cclass]
   (:db (read-string
-        (slurp (str "C:\\TEMP\\conf\\"
-                    project-name
-                    "\\db.conf")))))
+        (slurp (str (-> (java.io.File. (this-jar cclass))
+                        .getParentFile .getCanonicalPath)
+                    (java.io.File/separator) "db.conf")))))
 
 ;;(time (j/query db ["select sysdate from dual"]))
 
@@ -118,16 +122,16 @@
   ;;(System/exit status)
   )
 
+
 (def col-names 
   (reduce into (into [] (for [i (cons nil "ABCD")] (into [] (for [j "ABCDEFGHIJKLMNOPQRSTUVWXYZ"] (str i j)))))))
 
-(defn set-cells [rows s]
-  (loop [i 1 r rows]
-    (if-not (first r)
-      nil
-      (do
-        (map (fn [c d] (set-cell! (select-cell (str c i)) s) d) col-names r)  
-        (recur (inc i) (rest r))))))
+(defn seqb [coll begin] (if (= (first coll) begin) coll (recur (rest coll) begin)))
+
+(defn row-cell-map [begin-cell-name data]
+  (let [[cname rnum] (str/split begin-cell-name #"(?<=[A-Z])(?=[0-9])")
+        cnames (seqb col-names cname)]
+    (map #(map (fn [cn d] [cn %1 d]) cnames %2) (range (Integer. rnum) 100) data)))   
 
 (defn get-sqls [opts]
   (let [sqlfile (:sql opts)
@@ -135,18 +139,28 @@
         sql (slurp sqlfile :encoding encoding)]
     (and sql (str/split sql #";\s*"))))
 
-(defn get-worksheet [opts]
- ;; (->> (load-workbook "objects.xlsx")
- ;;               (sheet-seq)
- ;;               (map sheet-name)) 
- ;; (let [wb (load-workbook "test-temp1.xlsx")
- ;;                s (select-sheet "Sheet1" wb)
- ;;                c (select-cell "B2" s)]
- ;;            (read-cell c)
- ;;            (set-cell! c 5)
- ;;            (read-cell c)
- ;;            (save-workbook! "test-temp1.xlsx" wb))
-)
+(defn update-sheet [sheet start-cell-name data]
+  (let [rows (row-cell-map start-cell-name data)]
+    (doseq [r rows] 
+      (doseq [c r]
+        (set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))))))
+
+(defn update-wb [wb-name opt data]
+  (let [wb (load-workbook wb-name)
+	ss-opt (->> opt :sheet)
+        ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1"]]))]
+    (loop [s ss
+      	   d data]
+      (if-not (first s)
+        nil
+        (let [sheet (select-sheet (first (first s)) wb)
+              first-cell-name (first (second (first s)))
+              data (first d)]
+          ;;(println (first (first s)) (first (second (first s))) data)   
+          (update-sheet	sheet first-cell-name data)
+      	  (recur (rest s) (rest d)))))
+    (save-workbook! wb-name wb)))
+
 (defn q2x! [opts]
   (println (get-sqls opts)))
 
@@ -157,7 +171,11 @@
 	opts)
 
 (defn -main [& args]
-  (let [{:keys [action options exit-message ok?]} (validate-args args)]
+  (let [{:keys [action options exit-message ok?]} (validate-args args)
+        db (get-db clojure.lang.Atom)]
+    (println  (-> (java.io.File. (this-jar clojure.lang.Atom))
+              .getParentFile .getCanonicalPath) )
+    (println db)
     (if exit-message
       (exit (if ok? 0 1) exit-message)
       (case action

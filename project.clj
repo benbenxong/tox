@@ -14,4 +14,5 @@
                  [instaparse "1.4.8"]]
   :main ^:skip-aot tox.core
   :target-path "target/%s"
+  :resource-paths ["shared" "resources"]
   :profiles {:uberjar {:aot :all}})

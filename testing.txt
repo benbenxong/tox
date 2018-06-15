@@ -107,3 +107,77 @@ user=> (mapc println [1 2 3])
 2
 3
 nil
+
+(map #(map (fn [cn d] [cn %1 d]) col-names %2) (range 2 100) [[11 12] [21 22]])
+
+(let [wb (load-workbook "test-temp2.xlsx")
+                 s (select-sheet "sheet1" wb)
+                 rows (map #(map (fn [cn d] [cn %1 d]) col-names %2) (range 2 100) [[11 12] [21 22]])
+                 ]
+            (doseq [r rows] 
+            	(doseq [c r] (set-cell! (select-cell (str (nth c 0) (nth c 1)) s) (nth c 2))))
+             (save-workbook! "test-temp2.xlsx" wb))
+
+     
+
+ (str/split "ABC345" #"(?<=[A-Z])(?=[0-9])")
+ (defn row-cell-map [begin-cell-name data]
+  (let [[cname rnum] (str/split begin-cell-name #"(?<=[A-Z])(?=[0-9])")
+  cnames (seqb col-names cname)]
+    (map #(map (fn [cn d] [cn %1 d]) cnames %2) (range rnum 100) data))
+
+(def ss (->>  (validate-args ["-w" "(sheet1(A1),sheet2)" "q2x"]) :options :sheet))
+ (some #(map? %) ss)
+ (for [s ss] (if (map? s) s {s ["A1"]}))
+
+(defn update-wb [wb-name coll-sheets coll-data]
+(let [wb (load-workbook wb-name)
+      ss (for [s ss] (if (map? s) (first (vec s)) [s ["A1"]])) ]
+      (loop [s (first ss) d (first coll-data)]
+      	(if-not s
+      	 nil
+      	 ;;(save-workbook! "test-temp2.xlsx" wb) 
+         (let [sheet (select-sheet (first s) wb)
+         	   rows (row-cell-map (first (second s)) d)]
+            (doseq [r rows] 
+            	(doseq [c r]
+            	(println c sheet) 
+            	;;(set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))
+            	))
+            	(recur (rest ss) (rest coll-data)))))
+             (save-workbook! "test-temp2.xlsx" wb)))
+(update-wb "test-temp2.xlsx" ss [[[11 12] [12 21]] [[22 22] [32 31]]])  
+
+(defn update-sheet [sheet start-cell-name data]
+   (let [rows (row-cell-map start-cell-name data)]
+            (doseq [r rows] 
+            	(doseq [c r]
+            	(set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))
+            	)))) 
+
+(def ss (->>  (validate-args ["-w" "(sheet1(B2))" "q2x"]) :options :sheet))
+
+(defn update-wb [wb-name opt data]
+(let [wb (load-workbook wb-name)
+	  ss-opt (->> opt :sheet)
+      ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1"]]))]
+      (loop [s ss
+      		d data
+      		]
+        (if-not (first s)
+        	nil
+        	(let [sheet (select-sheet (first (first s)) wb)
+        			first-cell-name (first (second (first s)))
+        			data (first d)]
+        	;;(println (first (first s)) (first (second (first s))) data)   
+            (update-sheet	sheet first-cell-name data)
+      	    (recur (rest s) (rest d)))))
+      	(save-workbook! "test-temp2.xlsx" wb)))
+
+ (let [{:keys [action options exit-message ok?]} (validate-args ["-w" "(sheet1(B2))" "q2x"])]
+ 	(update-wb "test-temp2.xlsx" options [[11 12 ] [21 22]]))
+
+(let [
+	  ss-opt (->> options :sheet)
+      ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1"]]))]
+      ss)
