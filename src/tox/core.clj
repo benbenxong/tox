@@ -21,7 +21,7 @@
   (-> (or ns (class *ns*))
       .getProtectionDomain .getCodeSource .getLocation .toURI))
 
-(def db (:db (read-string (slurp "db.conf"))))
+(def db- (:db (read-string (slurp "db.conf"))))
 (defn get-db [cclass]
   (:db (read-string
         (slurp (str (-> (java.io.File. (this-jar cclass))
@@ -139,11 +139,20 @@
         sql (slurp sqlfile :encoding encoding)]
     (and sql (str/split sql #";\s*"))))
 
+(defn get-data [db-spec sqls]
+  (reduce conj [] (map (fn [sql] (j/query db-spec [sql] {:as-arrays? true, :keywordize? false}))  sqls)))
+
 (defn update-sheet [sheet start-cell-name data]
   (let [rows (row-cell-map start-cell-name data)]
     (doseq [r rows] 
       (doseq [c r]
         (set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))))))
+
+(defn create-wb [wb-name opt data]
+  (let [ss-opt (->> opt :sheet)
+	paras (reduce into [] (map vector ss-opt data))
+        wb (apply create-workbook paras)]
+    (save-workbook! wb-name wb)))
 
 (defn update-wb [wb-name opt data]
   (let [wb (load-workbook wb-name)
@@ -156,18 +165,25 @@
         (let [sheet (select-sheet (first (first s)) wb)
               first-cell-name (first (second (first s)))
               data (first d)]
-          ;;(println (first (first s)) (first (second (first s))) data)   
           (update-sheet	sheet first-cell-name data)
       	  (recur (rest s) (rest d)))))
     (save-workbook! wb-name wb)))
 
-(defn q2x! [opts]
-  (println (get-sqls opts)))
+(defn q2x! [opts db-spec]
+  (let [sqls (get-sqls opts)
+        sheets (:sheet opts)
+        outfile (:outfile opts)]
+    (if-not (= (count sqls) (count sheets))
+      "error count"
+      (let [data (get-data db-spec sqls)]
+        (if (some map? (:sheet opts))
+ 	  (update-wb outfile opts data)
+ 	  (create-wb outfile opts data))))))
 
-(defn q2c! [opts]
+(defn q2c! [opts db-spec]
 	opts)
 
-(defn x2d! [opts]
+(defn x2d! [opts db-spec]
 	opts)
 
 (defn -main [& args]
@@ -179,6 +195,6 @@
     (if exit-message
       (exit (if ok? 0 1) exit-message)
       (case action
-        "q2x" (q2x! options)
-        "q2c" (q2c! options)
-        "x2d" (x2d! options)))))
+        "q2x" (q2x! options db)
+        "q2c" (q2c! options db)
+        "x2d" (x2d! options db)))))

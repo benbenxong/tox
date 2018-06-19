@@ -174,10 +174,50 @@ nil
       	    (recur (rest s) (rest d)))))
       	(save-workbook! "test-temp2.xlsx" wb)))
 
- (let [{:keys [action options exit-message ok?]} (validate-args ["-w" "(sheet1(B2))" "q2x"])]
- 	(update-wb "test-temp2.xlsx" options [[11 12 ] [21 22]]))
+(let [{:keys [action options exit-message ok?]} (validate-args ["-w" "(sheet1(B2),sheet2)" "q2x"])]
+ 	(update-wb "test-temp2.xlsx" options [[[11 12 ] [21 22]] [[31 32 ] [41 42]]]))
 
-(let [
-	  ss-opt (->> options :sheet)
-      ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1"]]))]
-      ss)
+(let [{:keys [action options exit-message ok?]} (validate-args ["-s" ".\20180426自付一调查.sql" "q2x"])]
+ 	(println (get-sqls options)))
+
+(def cells (j/query db-
+   ["select object_name oname,object_id,created,object_type from all_objects where rownum<50000"]
+   {:as-arrays? true :keywordize? false }))
+
+(let!!!!!! [sname "objs"
+      limit 5000
+	  cs cells
+	  wb-name "objs.xlsx"
+	  wb (create-workbook sname [(first cells)])
+	  sheet (select-sheet sname wb)]
+  (loop [lcs (rest cs) rn 1]
+  	(if-not (first lcs)
+  	  nil
+  	  (do (add-row! sheet (first lcs))
+  	      (if (< rn limit)
+  	          (recur (rest lcs) (inc rn))
+  	          (do (save-workbook! wb-name wb)
+  	              (recur (rest lcs) 1))
+  	          )))
+  	          )
+	(save-workbook! wb-name wb)
+	)
+
+(defn create-wb [wb-name opt datas]
+(let [wb (create-workbook "objects"
+                          cells
+                          )]
+   (save-workbook! "objects.xlsx" wb))
+
+(def c (j/get-connection db-))
+(def s (j/prepare-statement c "select * from all_objects" {:fetch-size 100}))
+
+(def ss (->>  (validate-args ["-w" "(sheet1)" "q2x"]) :options :sheet))
+(defn create-wb [wb-name opt datas]
+(let [ss-opt (->> opt :sheet)
+	  paras (reduce into [] (map vector ss-opt datas))
+      wb (apply create-workbook paras)]
+      (save-workbook! wb-name wb)))
+
+(let [{:keys [action options exit-message ok?]} (validate-args ["-w" "(sheet1,sheet2)" "q2x"])]
+ 	(create-wb "test-temp2.xlsx" options [[["a" "b"] [11 12 ] [21 22]] [[11 12 ] [21 22]]]))
