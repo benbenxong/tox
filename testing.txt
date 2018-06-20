@@ -219,5 +219,25 @@ nil
       wb (apply create-workbook paras)]
       (save-workbook! wb-name wb)))
 
-(let [{:keys [action options exit-message ok?]} (validate-args ["-w" "(sheet1,sheet2)" "q2x"])]
- 	(create-wb "test-temp2.xlsx" options [[["a" "b"] [11 12 ] [21 22]] [[11 12 ] [21 22]]]))
+(let [{:keys [action options exit-message ok?]} (validate-args ["-w" "(sheet1,sheet2)" "-s" "test.sql" "q2x"])]
+ 	(create-wb "test-temp2.xlsx" options [[["a" "b"] [11 12 ] [21 22]] [["cc" "dd"]  [11 12 ] [21 22]]]))
+
+
+--get-data
+(defn get-data [db-spec sqls]
+  (reduce conj [] (map (fn [sql] (j/query db-spec [sql] {:as-arrays? true, :keywordize? false}))  sqls)))
+
+
+(defn q2x! [opts db-spec]
+  (let [sqls (get-sqls opts)
+ sheets (:sheet opts)
+ outfile (:outfile opts)]
+ (if-not (= (count sqls) (count sheets))
+    "error count"
+    (let [data (get-data db-spec sqls)]
+      (if (some map? (:sheet opts))
+ 	      (update-wb outfile opts data)
+ 	      (create-wb outfile opts data))))))
+
+
+ (-main "-w" "(Sheet1,Sheet2)" "-s" "test.sql" "-o" "objs.xlsx" "q2x")

@@ -11,7 +11,8 @@
                  [oracle.jdbc/oracledriver "11.2.0.1"]
                  [org.clojure/java.jdbc "0.7.5"]
                  [clojure.jdbc/clojure.jdbc-c3p0 "0.3.3"]
-                 [instaparse "1.4.8"]]
+                 [instaparse "1.4.8"]
+                 [failjure "1.3.0"]]
   :main ^:skip-aot tox.core
   :target-path "target/%s"
   :resource-paths ["shared" "resources"]

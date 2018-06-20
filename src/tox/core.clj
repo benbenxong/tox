@@ -6,6 +6,7 @@
             [instaparse.core :as insta]
             [det-enc.core :as det]
             [clojure.java.io :as io]
+            [failjure.core :as f]
             )
   (:gen-class)) 
 
@@ -22,12 +23,16 @@
       .getProtectionDomain .getCodeSource .getLocation .toURI))
 
 (def db- (:db (read-string (slurp "db.conf"))))
-(defn get-db [cclass]
-  (:db (read-string
-        (slurp (str (-> (java.io.File. (this-jar cclass))
-                        .getParentFile .getCanonicalPath)
-                    (java.io.File/separator) "db.conf")))))
 
+(defn get-db [cclass]
+  (let [fname1 (str (-> (java.io.File. (this-jar cclass))
+                        .getParentFile .getCanonicalPath)
+                    (java.io.File/separator) "db.conf")
+        fname2 "db.conf"]
+    (if (.exists (io/as-file fname1))
+      (:db (read-string (slurp fname1)))
+      (:db (read-string (slurp fname2)))
+      )))
 ;;(time (j/query db ["select sysdate from dual"]))
 
 ;; (def cells (j/query db
@@ -174,7 +179,7 @@
         sheets (:sheet opts)
         outfile (:outfile opts)]
     (if-not (= (count sqls) (count sheets))
-      "error count"
+      (f/fail "Error: Not equ between sqls and sheets!")
       (let [data (get-data db-spec sqls)]
         (if (some map? (:sheet opts))
  	  (update-wb outfile opts data)
@@ -189,12 +194,13 @@
 (defn -main [& args]
   (let [{:keys [action options exit-message ok?]} (validate-args args)
         db (get-db clojure.lang.Atom)]
-    (println  (-> (java.io.File. (this-jar clojure.lang.Atom))
-              .getParentFile .getCanonicalPath) )
-    (println db)
     (if exit-message
       (exit (if ok? 0 1) exit-message)
-      (case action
-        "q2x" (q2x! options db)
-        "q2c" (q2c! options db)
-        "x2d" (x2d! options db)))))
+      (f/attempt-all
+       [ret (case action
+              "q2x" (q2x! options db)
+              "q2c" (q2c! options db)
+              "x2d" (x2d! options db))]
+       (println "succeed!")
+       (f/when-failed [e]
+                      (f/message e))))))
