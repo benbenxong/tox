@@ -241,3 +241,9 @@ nil
 
 
  (-main "-w" "(Sheet1,Sheet2)" "-s" "test.sql" "-o" "objs.xlsx" "q2x")
+
+ (def data (->> (load-workbook "9087-1.xls")
+               (select-sheet "诊疗项目（门诊+住院_2018）")
+               (select-columns {:a "ca", :B "cb",:D "CD"})))
+
+(j/insert-multi! db- "tmp9087" (rest data))               

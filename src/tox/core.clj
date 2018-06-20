@@ -131,10 +131,15 @@
 (def col-names 
   (reduce into (into [] (for [i (cons nil "ABCD")] (into [] (for [j "ABCDEFGHIJKLMNOPQRSTUVWXYZ"] (str i j)))))))
 
-(defn seqb [coll begin] (if (= (first coll) begin) coll (recur (rest coll) begin)))
+(defn seqb [coll begin]
+  (if (empty? coll)
+    nil
+    (if (= (first coll) (str/upper-case begin))
+      coll 
+      (recur (rest coll) begin))))
 
 (defn row-cell-map [begin-cell-name data]
-  (let [[cname rnum] (str/split begin-cell-name #"(?<=[A-Z])(?=[0-9])")
+  (let [[cname rnum] (str/split begin-cell-name #"(?<=[A-Za-z])(?=[0-9])")
         cnames (seqb col-names cname)]
     (map #(map (fn [cn d] [cn %1 d]) cnames %2) (range (Integer. rnum) 100) data)))   
 
