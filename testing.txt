@@ -240,10 +240,40 @@ nil
  	      (create-wb outfile opts data))))))
 
 
- (-main "-w" "(Sheet1,Sheet2)" "-s" "test.sql" "-o" "objs.xlsx" "q2x")
+ (-main "-w" "(Sheet1(a2),Sheet1(a4))" "-s" "test.sql" "-o" "objs.xlsx" "q2x")
 
  (def data (->> (load-workbook "9087-1.xls")
                (select-sheet "诊疗项目（门诊+住院_2018）")
-               (select-columns {:a "ca", :B "cb",:D "CD"})))
+               (select-columns {:a "ca", :b "cb",:d "CD"})))
 
-(j/insert-multi! db- "tmp9087" (rest data))               
+(j/insert-multi! db- "tmp9087" (rest data))
+
+ (def ins-sql (first (read-string (slurp "test-ins.sql"))))
+ (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                        col-names (second ins-sql)))
+
+(defn extract-wb [wb-name opt f]
+            (let [wb (load-workbook wb-name)
+                  ]
+              ))  
+
+(let [{:keys [action options exit-message ok?]} 
+(validate-args ["-w" "(诊疗项目（门诊+住院_2018）(a1,e10),诊疗项目（仅门诊）)" "-s" "test.sql" "-o" "9087-1.xls" "q2x"])
+wb-name (:outfile options)
+wb (load-workbook wb-name)
+ss-opt (:sheet options)
+ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
+ins-sqls (read-string (slurp "test-ins.sql"))]
+(if (not= (count ss) (count ins-sqls))
+ "error: Not equ between sheets and sqls!"
+(reduce (fn [ret [s q]] 
+  (let [sname (first s)
+  		[cell-begin cell-end] (second s)
+  		col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		col-end (re-find #"[A-Za-z]+" cell-end)
+  		row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		row-end (Integer. (re-find #"[0-9]+" cell-end))
+  		col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                        (seqb col-names col-begin col-end) (second ins-sql)))
+  		]
+        (conj ret (->> wb (select-sheet sname) (select-columns col-spec) (#(sub-rows % row-begin row-end)))) )) [] (map vector ss ins-sql))))

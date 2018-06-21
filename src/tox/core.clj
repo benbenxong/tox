@@ -131,12 +131,18 @@
 (def col-names 
   (reduce into (into [] (for [i (cons nil "ABCD")] (into [] (for [j "ABCDEFGHIJKLMNOPQRSTUVWXYZ"] (str i j)))))))
 
-(defn seqb [coll begin]
-  (if (empty? coll)
-    nil
-    (if (= (first coll) (str/upper-case begin))
-      coll 
-      (recur (rest coll) begin))))
+(defn seqb
+  ([coll begin] 
+   (into [] (drop-while #(not= % (str/upper-case begin)) coll)))
+  ([coll begin end] 
+   (conj (into [] (take-while #(not= % (str/upper-case end)) (seqb coll begin))) (str/upper-case end))))
+
+(defn sub-rows
+  ([coll begin] 
+   (drop (dec begin) coll))
+  ([coll begin end] 
+   (let [cnt (inc (- end begin))] 
+     (take cnt (sub-rows coll begin))))) 
 
 (defn row-cell-map [begin-cell-name data]
   (let [[cname rnum] (str/split begin-cell-name #"(?<=[A-Za-z])(?=[0-9])")
@@ -178,6 +184,28 @@
           (update-sheet	sheet first-cell-name data)
       	  (recur (rest s) (rest d)))))
     (save-workbook! wb-name wb)))
+
+(defn extract-wb [wb-name opt f]
+(let [{:keys [action options exit-message ok?]} 
+(validate-args ["-w" "(诊疗项目（门诊+住院_2018）(a1,e10),诊疗项目（仅门诊）)" "-s" "test.sql" "-o" "9087-1.xls" "q2x"])
+wb-name (:outfile options)
+wb (load-workbook wb-name)
+ss-opt (:sheet options)
+ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
+ins-sqls (read-string (slurp "test-ins.sql"))]
+(if (not= (count ss) (count ins-sqls))
+ "error: Not equ between sheets and sqls!"
+(reduce (fn [ret [s q]] 
+  (let [sname (first s)
+  		[cell-begin cell-end] (second s)
+  		col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		col-end (re-find #"[A-Za-z]+" cell-end)
+  		row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		row-end (Integer. (re-find #"[0-9]+" cell-end))
+  		col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                        (seqb col-names col-begin col-end) (second ins-sql)))
+  		]
+        (conj ret (->> wb (select-sheet sname) (select-columns col-spec) (#(sub-rows % row-begin row-end)))) )) [] (map vector ss ins-sql)))))
 
 (defn q2x! [opts db-spec]
   (let [sqls (get-sqls opts)
