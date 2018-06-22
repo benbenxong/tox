@@ -252,28 +252,44 @@ nil
  (into {} (map (fn [col name] [(keyword col) (keyword name)])
                         col-names (second ins-sql)))
 
-(defn extract-wb [wb-name opt f]
-            (let [wb (load-workbook wb-name)
-                  ]
-              ))  
+(defn extract-wb [opt f]
+  (let [wb-name (:outfile opt)
+        wb (load-workbook wb-name)
+        ss-opt (:sheet opt)
+        ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
+        ins-sqls (read-string (slurp "test-ins.sql"))]
+    (if (not= (count ss) (count ins-sqls))
+      (f/fail "error: Not equ between sheets and sqls!")
+      (let [data 
+            (reduce (fn [ret [s q]] 
+                      (let [sname (first s)
+  		            [cell-begin cell-end] (second s)
+  		            col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		            col-end (if cell-end (re-find #"[A-Za-z]+" cell-end))
+  		            row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		            row-end (if cell-end (Integer. (re-find #"[0-9]+" cell-end)))
+  		            col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                                                   (seqb col-names col-begin col-end) (second q)))]
+                        (conj ret
+                              (->> wb 
+                                   (select-sheet sname) 
+                                   (select-columns col-spec) 
+                                   (#(sub-rows % row-begin row-end))))))
+                    [] 
+                    (map vector ss ins-sqls))]
+        (f ss ins-sqls data)))))
 
-(let [{:keys [action options exit-message ok?]} 
-(validate-args ["-w" "(诊疗项目（门诊+住院_2018）(a1,e10),诊疗项目（仅门诊）)" "-s" "test.sql" "-o" "9087-1.xls" "q2x"])
-wb-name (:outfile options)
-wb (load-workbook wb-name)
-ss-opt (:sheet options)
-ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
-ins-sqls (read-string (slurp "test-ins.sql"))]
-(if (not= (count ss) (count ins-sqls))
- "error: Not equ between sheets and sqls!"
-(reduce (fn [ret [s q]] 
-  (let [sname (first s)
-  		[cell-begin cell-end] (second s)
-  		col-begin (re-find #"[A-Za-z]+" cell-begin)
-  		col-end (re-find #"[A-Za-z]+" cell-end)
-  		row-begin (Integer. (re-find #"[0-9]+" cell-begin))
-  		row-end (Integer. (re-find #"[0-9]+" cell-end))
-  		col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
-                        (seqb col-names col-begin col-end) (second ins-sql)))
-  		]
-        (conj ret (->> wb (select-sheet sname) (select-columns col-spec) (#(sub-rows % row-begin row-end)))) )) [] (map vector ss ins-sql))))
+(let [{:keys [action options exit-message ok?]} (validate-args [
+"-o" "9087-1.xls" "-w" "(诊疗项目（门诊+住院_2018）(B2,c5),诊疗项目（门诊+住院_2018）(d200))" "-s" "test-ins.sql" "q2x"])
+opt options
+wb-name (:outfile opt)
+        wb (load-workbook wb-name)
+        ss-opt (:sheet opt)
+        ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
+        ins-sqls (read-string (slurp "test-ins.sql"))
+        ]
+(extract-wb opt 
+(fn [_ ins-sql data] 
+  (mapc (fn [[sql sdata]] (j/insert-multi! db- (first sql) sdata) nil) (map vector ins-sql data)))))
+
+(re-find #"[A-Za-z]+" nil)
