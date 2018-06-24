@@ -221,6 +221,9 @@
   (fn [db-spec _ ins-sqls data]
     (mapc (fn [[sql sdata]] (j/insert-multi! db-spec (first sql) sdata) nil) (map vector ins-sqls data))))
 
+(def data-to-seq
+  (fn [_ ss _ data]
+    (mapc (fn [[sheet sdata]] {(first sheet) sdata}) (map vector ss data))))
 
 (defn q2x! [opts db-spec]
   (let [sqls (get-sqls opts)

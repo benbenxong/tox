@@ -292,4 +292,17 @@ wb-name (:outfile opt)
 (fn [_ ins-sql data] 
   (mapc (fn [[sql sdata]] (j/insert-multi! db- (first sql) sdata) nil) (map vector ins-sql data)))))
 
-(re-find #"[A-Za-z]+" nil)
+—new 20180623
+(let [{:keys [action options exit-message ok?]} (validate-args [
+"-o" "test-temp2.xlsx" "-w" "(sheet1(a1,b3),sheet2(a2))" "-s" "test-ins.sql" "q2x"])
+opt options
+db-spec db-
+wb-name (:outfile opt)
+        wb (load-workbook wb-name)
+        ss-opt (:sheet opt)
+        ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
+        ins-sqls (read-string (slurp "test-ins.sql"))
+        ] 
+(extract-wb opt db-spec
+data-to-db)
+)
