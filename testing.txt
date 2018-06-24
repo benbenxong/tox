@@ -306,3 +306,29 @@ wb-name (:outfile opt)
 (extract-wb opt db-spec
 data-to-db)
 )
+;;"test-temp2.xlsx" (:sheet (:options (validate-args ["-w" "(sheet1(a2,b4),sheet2(a2,a6))" "q2x"])))
+(defn xls-to-seq [workbook-name,sheets]
+  (if (every? map? sheets)
+  (let [wb (load-workbook workbook-name)
+        ins-sqls (read-string (slurp "test-ins.sql"))]
+    (if (not= (count ss) (count ins-sqls))
+      (f/fail "error: Not equ between sheets and sqls!")
+      (let [data 
+            (reduce (fn [ret [s q]] 
+                      (let [sname (first s)
+  		            [cell-begin cell-end] (second s)
+  		            col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		            col-end (if cell-end (re-find #"[A-Za-z]+" cell-end))
+  		            row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		            row-end (if cell-end (Integer. (re-find #"[0-9]+" cell-end)))
+  		            col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                                                   (seqb col-names col-begin col-end) (second q)))]
+                        (conj ret
+                              (->> wb 
+                                   (select-sheet sname) 
+                                   (select-columns col-spec) 
+                                   (#(sub-rows % row-begin row-end))))))
+                    [] 
+                    (map vector ss ins-sqls))]
+        (f db-spec ss ins-sqls data)))))
+

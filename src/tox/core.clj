@@ -154,14 +154,18 @@
         cnames (seqb col-names cname)]
     (map #(map (fn [cn d] [cn %1 d]) cnames %2) (range (Integer. rnum) 100) data)))   
 
-(defn get-sqls [opts]
-  (let [sqlfile (:sql opts)
-        encoding (det/detect sqlfile "GBK")
-        sql (slurp sqlfile :encoding encoding)]
+(defn get-sqls [sql-file]
+  (let [encoding (det/detect sql-file "GBK")
+        sql (slurp sql-file :encoding encoding)]
     (and sql (str/split sql #";\s*"))))
 
-(defn get-data [db-spec sqls]
-  (reduce conj [] (map (fn [sql] (j/query db-spec [sql] {:as-arrays? true, :keywordize? false}))  sqls)))
+;; (defn get-data [db-spec sqls]
+;;   (reduce conj [] (map (fn [sql] (j/query db-spec [sql] {:as-arrays? true, :keywordize? false}))  sqls)))
+
+(defn db-to-seq [db-spec sqls]
+  (reduce conj []
+          (map-indexed (fn [ind sql]
+                         {ind (j/query db-spec [sql])}) sqls)))
 
 (defn update-sheet [sheet start-cell-name data]
   (let [rows (row-cell-map start-cell-name data)]
