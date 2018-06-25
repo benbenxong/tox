@@ -164,7 +164,7 @@
   (reduce conj [] (map (fn [sql] (j/query db-spec [sql] {:as-arrays? true, :keywordize? false}))  sqls)))
 
 (defn update-sheet [sheet start-cell-name data]
-  (let [rows (row-cell-map start-cell-name data)]
+  (let [rows (row-cell-map start-cell-name (first data))]
     (doseq [r rows] 
       (doseq [c r]
         (set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))))))
@@ -240,7 +240,15 @@
 	opts)
 
 (defn x2d! [opts db-spec]
-	opts)
+  (let [wb-name (:outfile opts)
+        wb (load-workbook wb-name)
+        ss-opt (:sheet opts)
+        ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
+        sql-file (:sql opts)
+        ins-sqls (read-string (slurp sql-file))
+        ] 
+    (extract-wb opts db-spec data-to-db)
+    ))
 
 (defn -main [& args]
   (let [{:keys [action options exit-message ok?]} (validate-args args)
