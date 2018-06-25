@@ -195,7 +195,8 @@
         wb (load-workbook wb-name)
         ss-opt (:sheet opt)
         ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
-        ins-sqls (read-string (slurp "test-ins.sql"))]
+        sql-file (:sql opt)
+        ins-sqls (read-string (slurp sql-file))]
     (if (not= (count ss) (count ins-sqls))
       (f/fail "error: Not equ between sheets and sqls!")
       (let [data 
