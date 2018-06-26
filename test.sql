@@ -1,4 +1,4 @@
-select object_name oname,object_id,created,object_type from all_objects where rownum<400;
+select * from tmp9087 where rownum<10;
 
-select object_name oname,created,object_type from all_objects where rownum<50
+select ca,cb from tmp9087 where rownum<5
 ;

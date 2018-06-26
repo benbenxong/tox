@@ -22,7 +22,11 @@
   (-> (or ns (class *ns*))
       .getProtectionDomain .getCodeSource .getLocation .toURI))
 
-(def db- (:db (read-string (slurp "db.conf"))))
+(def db (:db (read-string 
+              (slurp (str (System/getenv "temp")
+                          (java.io.File/separator)
+                          "tox" (java.io.File/separator)
+                          "db.conf")))))
 
 (defn get-db [cclass]
   (let [fname1 (str (-> (java.io.File. (this-jar cclass))
@@ -162,10 +166,66 @@
 ;; (defn get-data [db-spec sqls]
 ;;   (reduce conj [] (map (fn [sql] (j/query db-spec [sql] {:as-arrays? true, :keywordize? false}))  sqls)))
 
+(defn get-ins-sqls [ins-sql-file]
+  (read-string (slurp ins-sql-file)))
+
+;; (->> (get-sqls "test.sql") (db-to-seq db))
 (defn db-to-seq [db-spec sqls]
   (reduce conj []
           (map-indexed (fn [ind sql]
                          {ind (j/query db-spec [sql])}) sqls)))
+
+;; (seq-to-db db data (get-ins-sqls "test-ins.sql"))
+(defn seq-to-db [db-spec seq-data ins-sqls]
+  (if (not= (count seq-data) (count ins-sqls))
+    (f/fail "Not equ count between seq-data and ins-sqls!")
+    (mapc (fn [s] (j/insert-multi! db-spec (first s) (second s)) nil) 
+          (map vector (map first ins-sqls) (map #(second (first %)) seq-data)))))
+
+;; (let [{:keys [action options exit-message ok?]} (validate-args [
+;; "-o" "test-temp2.xlsx" "-w" "(sheet1(a2,b3),sheet2(a2,b3))" "-s" "test-ins.sql" "q2x"])]
+;; (xls-to-seq (:outfile options) (:sheet options) (get-ins-sqls "test-ins.sql"))
+;; ;;(println (:outfile options) "," (:sheet options))
+;; ;;(map vector (reduce into [] (:sheet options)) (get-ins-sqls "test-ins.sql"))
+;; )
+(defn xls-to-seq [wb-name wb-sheets ins-sqls]
+  (let [wb (load-workbook wb-name)
+  		ss (reduce into [] wb-sheets)]
+    (if-not (every? map? wb-sheets)
+      (f/fail "error: Not equ between sheets and sqls!")
+         (map-indexed hash-map (reduce (fn [ret [s q]] 
+                      (let [sname (first s)
+  		            [cell-begin cell-end] (second s)
+  		            col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		            col-end (if cell-end (re-find #"[A-Za-z]+" cell-end))
+  		            row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		            row-end (if cell-end (Integer. (re-find #"[0-9]+" cell-end)))
+  		            col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                                                   (seqb col-names col-begin col-end) (second q)))]
+                        (conj ret
+                              (->> wb 
+                                   (select-sheet sname) 
+                                   (select-columns col-spec) 
+                                   (#(sub-rows % row-begin row-end))))))
+                    [] 
+                    (map vector ss ins-sqls))))))
+
+;; (let [{:keys [action options exit-message ok?]} (validate-args [
+;;  "-o" "test-temp2.xlsx" "-w" "(sheet1,sheet2)" "-s" "test-ins.sql" "q2x"])
+;;  ss (:sheet options)
+;;  data (read-string "({0 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})}
+;;  {1 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})})")]
+;;  (seq-to-xls (:outfile options) (:sheet options) data)
+;; )
+(defn seq-to-xls [wb-name wb-sheets seq-data] 
+  (if (not= (count wb-sheets) (count seq-data))
+    (f/fail "Not equ count between wb-sheets and seq-data")
+    (let [title (mapv #(->> (vals %) first first keys (map name) vec) seq-data)
+          data (mapv #(->> (vals %) first vec (mapv (fn [v] (vec (vals v))))) seq-data)
+          paras (reduce into [] (map (fn [s t d] [s (into [t] d)]) wb-sheets title data))
+          wb (apply create-workbook paras)]
+      (save-workbook! wb-name wb)
+      )))
 
 (defn update-sheet [sheet start-cell-name data]
   (let [rows (row-cell-map start-cell-name data)]
@@ -173,9 +233,8 @@
       (doseq [c r]
         (set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))))))
 
-(defn create-wb [wb-name opt data]
-  (let [ss-opt (->> opt :sheet)
-	paras (reduce into [] (map vector ss-opt data))
+(defn create-wb [wb-name wb-sheets data]
+  (let [paras (reduce into [] (map vector wb-sheets data))
         wb (apply create-workbook paras)]
     (save-workbook! wb-name wb)))
 
@@ -190,7 +249,7 @@
         (let [sheet (select-sheet (first (first s)) wb)
               first-cell-name (first (second (first s)))
               data (first d)]
-          (update-sheet	sheet first-cell-name data)
+          (update-sheet	sheet first-cell-name (first data))
       	  (recur (rest s) (rest d)))))
     (save-workbook! wb-name wb)))
 
