@@ -24,10 +24,12 @@
 
 (def db- (:db (read-string (slurp "db.conf"))))
 
-(defn get-db [cclass]
-  (let [fname1 (str (-> (java.io.File. (this-jar cclass))
-                        .getParentFile .getCanonicalPath)
-                    (java.io.File/separator) "db.conf")
+(defn get-db []
+  (let [fname1 (str (System/getenv "temp")
+                    (java.io.File/separator) 
+                    "tox"
+                    (java.io.File/separator) 
+                    "db.conf")
         fname2 "db.conf"]
     (if (.exists (io/as-file fname1))
       (:db (read-string (slurp fname1)))
