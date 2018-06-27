@@ -28,15 +28,6 @@
                           "tox" (java.io.File/separator)
                           "db.conf")))))
 
-(defn get-db [cclass]
-  (let [fname1 (str (-> (java.io.File. (this-jar cclass))
-                        .getParentFile .getCanonicalPath)
-                    (java.io.File/separator) "db.conf")
-        fname2 "db.conf"]
-    (if (.exists (io/as-file fname1))
-      (:db (read-string (slurp fname1)))
-      (:db (read-string (slurp fname2)))
-      )))
 ;;(time (j/query db ["select sysdate from dual"]))
 
 ;; (def cells (j/query db
@@ -97,8 +88,8 @@
 	options-summary
 	""
 	"Actions:"
-	"  q2x    query to excel file."
-	"  q2c    query to csv file(s)."
+	"  d2x    db to excel file."
+	"  d2t    db to txt|csv file(s)."
 	"  x2d    excel file to db."
 	""
 	"Please refer to the manual page for more information."]
@@ -121,14 +112,14 @@
       {:exit-message (error-msg errors)}
       ;; custom validation on arguments
       (and (= 1 (count arguments))
-           (#{"q2x" "q2c" "x2d"} (first arguments)))
+           (#{"d2x" "d2t" "x2d"} (first arguments)))
       {:action (first arguments) :options options}
       :else ; failed custom validation => exit with usage summary
       {:exit-message (usage summary)})))
 
 (defn exit [status msg]
   (println msg)
-  ;;(System/exit status)
+  (System/exit status)
   )
 
 (defn mapc [f coll] (reduce (fn [_ v] (f v)) nil coll))
@@ -176,7 +167,7 @@
                          {ind (j/query db-spec [sql])}) sqls)))
 
 ;; (seq-to-db db data (get-ins-sqls "test-ins.sql"))
-(defn seq-to-db [db-spec seq-data ins-sqls]
+(defn seq-to-db [db-spec ins-sqls seq-data]
   (if (not= (count seq-data) (count ins-sqls))
     (f/fail "Not equ count between seq-data and ins-sqls!")
     (mapc (fn [s] (j/insert-multi! db-spec (first s) (second s)) nil) 
@@ -192,7 +183,7 @@
   (let [wb (load-workbook wb-name)
   		ss (reduce into [] wb-sheets)]
     (if-not (every? map? wb-sheets)
-      (f/fail "error: Not equ between sheets and sqls!")
+      (f/fail "error: When xls-to-seq sheet Must be Map type (sheet(a1,a2)..)!")
          (map-indexed hash-map (reduce (fn [ret [s q]] 
                       (let [sname (first s)
   		            [cell-begin cell-end] (second s)
@@ -219,26 +210,45 @@
 ;; )
 (defn seq-to-xls [wb-name wb-sheets seq-data] 
   (if (not= (count wb-sheets) (count seq-data))
-    (f/fail "Not equ count between wb-sheets and seq-data")
-    (let [title (mapv #(->> (vals %) first first keys (map name) vec) seq-data)
-          data (mapv #(->> (vals %) first vec (mapv (fn [v] (vec (vals v))))) seq-data)
-          paras (reduce into [] (map (fn [s t d] [s (into [t] d)]) wb-sheets title data))
-          wb (apply create-workbook paras)]
-      (save-workbook! wb-name wb)
-      )))
+    (f/fail "Not equ count between wb-sheets and seq-data!")
+    (if (some map? wb-sheets)
+      (let [wb (load-workbook wb-name)
+	    ss (reduce into [] wb-sheets)]
+	(if (not= (count ss) (count seq-data))
+	  (f/fail "Not equ count between wb-sheets and seq-data")
+    	  (do
+    	    (doseq [[s d] (map vector ss seq-data)]
+              (let [sheet (select-sheet (first s) wb)
+                    first-cell-name (first (second s))
+                    col-begin (re-find #"[A-Za-z]+" first-cell-name)
+                    row-begin (Integer. (re-find #"[0-9]+" first-cell-name))
+                    data (->> d first second (mapv (fn [v] (vec (vals v)))))]
+                (doseq [[row-data row-num] (map vector data (range row-begin 1000000))]
+          	  (doseq [[col-name cell-data] 
+          	          (map vector (seqb col-names col-begin)
+          	               row-data)]
+          	    (set-cell! (select-cell (str col-name row-num) sheet) cell-data)))))
+            (save-workbook! wb-name wb))))
+      (let [title (mapv #(->> (vals %) first first keys (map name) vec) seq-data)
+            data (mapv #(->> (vals %) first vec (mapv (fn [v] (vec (vals v))))) seq-data)
+            paras (reduce into [] (map (fn [s t d] [s (into [t] d)]) wb-sheets title data))
+            wb (apply create-workbook paras)]
+        (save-workbook! wb-name wb)
+        ))))
 
-(defn update-sheet [sheet start-cell-name data]
+
+(defn- update-sheet [sheet start-cell-name data]
   (let [rows (row-cell-map start-cell-name data)]
     (doseq [r rows] 
       (doseq [c r]
         (set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))))))
 
-(defn create-wb [wb-name wb-sheets data]
+(defn- create-wb [wb-name wb-sheets data]
   (let [paras (reduce into [] (map vector wb-sheets data))
         wb (apply create-workbook paras)]
     (save-workbook! wb-name wb)))
 
-(defn update-wb [wb-name opt data]
+(defn- update-wb [wb-name opt data]
   (let [wb (load-workbook wb-name)
 	ss-opt (->> opt :sheet)
         ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1"]]))]
@@ -253,7 +263,7 @@
       	  (recur (rest s) (rest d)))))
     (save-workbook! wb-name wb)))
 
-(defn extract-wb [opt db-spec f]
+(defn- extract-wb [opt db-spec f]
   (let [wb-name (:outfile opt)
         wb (load-workbook wb-name)
         ss-opt (:sheet opt)
@@ -288,33 +298,41 @@
   (fn [_ ss _ data]
     (mapc (fn [[sheet sdata]] {(first sheet) sdata}) (map vector ss data))))
 
-(defn q2x! [opts db-spec]
-  (let [sqls (get-sqls opts)
-        sheets (:sheet opts)
-        outfile (:outfile opts)]
-    (if-not (= (count sqls) (count sheets))
-      (f/fail "Error: Not equ between sqls and sheets!")
-      (let [data (get-data db-spec sqls)]
-        (if (some map? (:sheet opts))
- 	  (update-wb outfile opts data)
- 	  (create-wb outfile opts data))))))
+(defn d2x! [opts db-spec]
+  (let [sql-file (:sql opts)
+        sqls (get-sqls sql-file)
+        wb-sheets (:sheet opts)
+        wb-name (:outfile opts)]
+    (->> (db-to-seq db-spec sqls) (seq-to-xls wb-name wb-sheets))))
 
-(defn q2c! [opts db-spec]
-	opts)
+(defn x2d! [opts db-spec]
+  (let [sql-file (:sql opts)
+        ins-sqls (get-ins-sqls sql-file)
+        wb-sheets (:sheet opts)
+        wb-name (:outfile opts)]
+    (->> (xls-to-seq wb-name wb-sheets ins-sqls) (seq-to-db db-spec ins-sqls))))
+
+(defn db-to-txt [db-spec sqls file-name]
+  (->> (db-to-seq db-spec sqls) (#(str/replace % #"}" "}\r\n")) (spit file-name)))
+
+(defn d2t! [opts db-spec]
+  (let [sql-file (:sql opts)
+        sqls (get-sqls sql-file)
+        outfile (:outfile opts)]
+    (db-to-txt db-spec sqls outfile)))
 
 (defn x2d! [opts db-spec]
 	opts)
 
 (defn -main [& args]
-  (let [{:keys [action options exit-message ok?]} (validate-args args)
-        db (get-db clojure.lang.Atom)]
+  (let [{:keys [action options exit-message ok?]} (validate-args args)]
     (if exit-message
       (exit (if ok? 0 1) exit-message)
       (f/attempt-all
        [ret (case action
-              "q2x" (q2x! options db)
-              "q2c" (q2c! options db)
-              "x2d" (x2d! options db))]
+              "d2x" (d2x! options db)
+              "x2d" (x2d! options db)
+              "d2t" (d2t! options db))]
        (println "succeed!")
        (f/when-failed [e]
                       (f/message e))))))

@@ -1,0 +1,16 @@
+[{0 ({:object_id 20M, :object_name "ICOL$", :object_type "TABLE", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 46M, :object_name "I_USER1", :object_type "INDEX", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 28M, :object_name "CON$", :object_type "TABLE", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 15M, :object_name "UNDO$", :object_type "TABLE", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 29M, :object_name "C_COBJ#", :object_type "CLUSTER", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 3M, :object_name "I_OBJ#", :object_type "INDEX", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 25M, :object_name "PROXY_ROLE_DATA$", :object_type "TABLE", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 41M, :object_name "I_IND1", :object_type "INDEX", :created #inst "2010-03-30T02:07:48.000000000-00:00", :owner "SYS"}
+ {:object_id 54M, :object_name "I_CDEF2", :object_type "INDEX", :created #inst "2010-03-30T02:07:49.000000000-00:00", :owner "SYS"}
+)}
+ {1 ({:id 20M, :name "ICOL$", :type "TABLE", :created #inst "2010-03-30T02:07:48.000000000-00:00"}
+ {:id 46M, :name "I_USER1", :type "INDEX", :created #inst "2010-03-30T02:07:48.000000000-00:00"}
+ {:id 28M, :name "CON$", :type "TABLE", :created #inst "2010-03-30T02:07:48.000000000-00:00"}
+ {:id 15M, :name "UNDO$", :type "TABLE", :created #inst "2010-03-30T02:07:48.000000000-00:00"}
+)}
+]

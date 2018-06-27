@@ -365,16 +365,38 @@ wb-sheets (:sheet opt)
                     [] 
                     (map vector ss ins-sqls))))))
 
+(let [{:keys [action options exit-message ok?]} (validate-args [
+ "-o" "test-temp2.xlsx" "-w" "(sheet1(a1,b3),sheet2(a2))" "-s" "test-ins.sql" "q2x"])
+ ss (:sheet options)
+ 
+ data (read-string "({0 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})}
+ {1 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})})")]
+;;(update-wb1 "test-temp2.xlsx" ss data)
+;; (->> data first first second (map (fn [v] (vec (vals v)))))
+(doseq [[s d] (map vector (reduce into [] wb-sheets) data)] 
+(let [sheet (select-sheet (first (first s)) wb)
+              first-cell-name (first (second s))
+              col-begin (re-find #"[A-Za-z]+" first-cell-name)
+              row-begin (Integer. (re-find #"[0-9]+" first-cell-name))
+              data (->> d first second (mapv (fn [v] (vec (vals v)))))]
+              sheet)
+)
 (defn update-wb1 [wb-name wb-sheets seq-data]
   (let [wb (load-workbook wb-name)
-	    ss (for [s wb-sheets] (if (map? s) (first (vec s)) [s ["A1"]]))]
-    (loop [s ss
-      	   d data]
-      (if-not (first s)
-        nil
-        (let [sheet (select-sheet (first (first s)) wb)
-              first-cell-name (first (second (first s)))
-              data (first d)]
-          (update-sheet	sheet first-cell-name (first data))
-      	  (recur (rest s) (rest d)))))
-    (save-workbook! wb-name wb)))
+	    ss (reduce into [] wb-sheets)]
+	    (if (not= (count ss) (count seq-data))
+	    	(f/fail "Not equ count between wb-sheets and seq-data")
+    		(do
+    		(doseq [[s d] (map vector ss seq-data)]
+        		(let [sheet (select-sheet (first (first s)) wb)
+              first-cell-name (first (second s))
+              col-begin (re-find #"[A-Za-z]+" first-cell-name)
+              row-begin (Integer. (re-find #"[0-9]+" first-cell-name))
+              data (->> d first second (mapv (fn [v] (vec (vals v)))))]
+          (doseq [r data]
+          	(doseq [[col-name row-num cell-data] 
+          	        (map vector (seqb col-names col-begin)
+          	        		    (range row-begin 10000000)
+          	        		    r)]
+          	        		    (set-cell! (select-cell (str col-name row-num) sheet) cell-data)))))
+    (save-workbook! wb-name wb)))))
