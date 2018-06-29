@@ -99,6 +99,8 @@
   (str "The following errors occurred while parsing your command:\n\n"
        (str/join \newline errors)))
 
+(def actions #{"d2x" "x2d" "d2t"})
+
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
   should exit (with a error message, and optional ok status), or a map
@@ -111,9 +113,8 @@
       errors ; errors => exit with description of errors
       {:exit-message (error-msg errors)}
       ;; custom validation on arguments
-      (and (= 1 (count arguments))
-           (#{"d2x" "d2t" "x2d"} (first arguments)))
-      {:action (first arguments) :options options}
+      (some actions arguments)
+      {:action (some actions arguments) :options options :arguments arguments}
       :else ; failed custom validation => exit with usage summary
       {:exit-message (usage summary)})))
 
@@ -149,10 +150,19 @@
         cnames (seqb col-names cname)]
     (map #(map (fn [cn d] [cn %1 d]) cnames %2) (range (Integer. rnum) 100) data)))   
 
-(defn get-sqls [sql-file]
+(defn get-sqls [sql-file args]
   (let [encoding (det/detect sql-file "GBK")
-        sql (slurp sql-file :encoding encoding)]
-    (and sql (str/split sql #";\s*"))))
+        sql (slurp sql-file :encoding encoding)
+        sql-args (into #{} (re-seq #"&\d" sql))
+        cnt-sql-args (count sql-args)
+        cmd-args (into [] (filter (fn [x] (->> x actions not)) args))
+        cnt-args (count cmd-args)
+        replace-map (into {} (map (fn [i v] [(str "&" i) v]) (range 1 10) cmd-args))]
+    (if (not= cnt-args cnt-sql-args)
+      (f/fail (str "Not equ between cnt-args[" cnt-args "] and cnt-sql-args[" cnt-sql-args "]!"))
+      (if (= 0 cnt-args) 
+        (and sql (str/split sql #";\s*"))
+        (and sql (str/split (str/replace sql #"&\d" replace-map) #";\s*"))))))
 
 ;; (defn get-data [db-spec sqls]
 ;;   (reduce conj [] (map (fn [sql] (j/query db-spec [sql] {:as-arrays? true, :keywordize? false}))  sqls)))
@@ -162,19 +172,14 @@
 
 ;; (->> (get-sqls "test.sql") (db-to-seq db))
 (defn db-to-seq [db-spec sqls]
-  (reduce conj []
-          (map-indexed (fn [ind sql]
-                         {ind (j/query db-spec [sql])}) sqls)))
-
-;; (seq-to-db db data (get-ins-sqls "test-ins.sql"))
-(defn seq-to-db [db-spec ins-sqls seq-data]
-  (if (not= (count seq-data) (count ins-sqls))
-    (f/fail "Not equ count between seq-data and ins-sqls!")
-    (mapc (fn [s] (j/insert-multi! db-spec (first s) (second s)) nil) 
-          (map vector (map first ins-sqls) (map #(second (first %)) seq-data)))))
+  (into []
+        (map-indexed 
+         (fn [ind sql]
+           (println sql) 
+           [ind (j/query db-spec [sql] {:as-arrays? true, :keywordize? false})]) sqls)))
 
 ;; (let [{:keys [action options exit-message ok?]} (validate-args [
-;; "-o" "test-temp2.xlsx" "-w" "(sheet1(a2,b3),sheet2(a2,b3))" "-s" "test-ins.sql" "q2x"])]
+;; "-o" "test-temp2.xlsx" "-w" "(sheet1(a2,b3),sheet2(a2,b3))" "-s" "test-ins.sql" "d2x"])]
 ;; (xls-to-seq (:outfile options) (:sheet options) (get-ins-sqls "test-ins.sql"))
 ;; ;;(println (:outfile options) "," (:sheet options))
 ;; ;;(map vector (reduce into [] (:sheet options)) (get-ins-sqls "test-ins.sql"))
@@ -184,7 +189,7 @@
   		ss (reduce into [] wb-sheets)]
     (if-not (every? map? wb-sheets)
       (f/fail "error: When xls-to-seq sheet Must be Map type (sheet(a1,a2)..)!")
-         (map-indexed hash-map (reduce (fn [ret [s q]] 
+         (into [] (map-indexed vector (reduce (fn [ret [s q]] 
                       (let [sname (first s)
   		            [cell-begin cell-end] (second s)
   		            col-begin (re-find #"[A-Za-z]+" cell-begin)
@@ -194,24 +199,25 @@
   		            col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
                                                    (seqb col-names col-begin col-end) (second q)))]
                         (conj ret
-                              (->> wb 
+                              (into [] (cons (mapv name (second q)) (->> wb 
                                    (select-sheet sname) 
                                    (select-columns col-spec) 
-                                   (#(sub-rows % row-begin row-end))))))
-                    [] 
-                    (map vector ss ins-sqls))))))
+                                   (#(sub-rows % row-begin row-end))
+                                   (map (fn [r] (vec (vals r))))))))))
+                    []
+                    (map vector ss ins-sqls)))))))
 
 ;; (let [{:keys [action options exit-message ok?]} (validate-args [
-;;  "-o" "test-temp2.xlsx" "-w" "(sheet1,sheet2)" "-s" "test-ins.sql" "q2x"])
-;;  ss (:sheet options)
-;;  data (read-string "({0 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})}
-;;  {1 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})})")]
+;;  "-o" "test-temp2.xlsx" "-w" "(sheet1,sheet2)" "-s" "test-ins.sql" "d2x"])
+;;   ss (:sheet options)
+;;   data  (db-to-seq db (get-sqls "test.sql"))]
 ;;  (seq-to-xls (:outfile options) (:sheet options) data)
-;; )
+;;  ) 
 (defn seq-to-xls [wb-name wb-sheets seq-data] 
   (if (not= (count wb-sheets) (count seq-data))
     (f/fail "Not equ count between wb-sheets and seq-data!")
     (if (some map? wb-sheets)
+      ;;update-workbook
       (let [wb (load-workbook wb-name)
 	    ss (reduce into [] wb-sheets)]
 	(if (not= (count ss) (count seq-data))
@@ -222,20 +228,26 @@
                     first-cell-name (first (second s))
                     col-begin (re-find #"[A-Za-z]+" first-cell-name)
                     row-begin (Integer. (re-find #"[0-9]+" first-cell-name))
-                    data (->> d first second (mapv (fn [v] (vec (vals v)))))]
+                    data (->> d second rest)]
                 (doseq [[row-data row-num] (map vector data (range row-begin 1000000))]
           	  (doseq [[col-name cell-data] 
           	          (map vector (seqb col-names col-begin)
           	               row-data)]
           	    (set-cell! (select-cell (str col-name row-num) sheet) cell-data)))))
             (save-workbook! wb-name wb))))
-      (let [title (mapv #(->> (vals %) first first keys (map name) vec) seq-data)
-            data (mapv #(->> (vals %) first vec (mapv (fn [v] (vec (vals v))))) seq-data)
-            paras (reduce into [] (map (fn [s t d] [s (into [t] d)]) wb-sheets title data))
+      ;;create-workbook
+      (let [paras (reduce into [] (map (fn [s d] [s (second d)]) wb-sheets seq-data))
             wb (apply create-workbook paras)]
         (save-workbook! wb-name wb)
         ))))
 
+(defn seq-to-db [db-spec ins-sqls seq-data]
+  (mapc (fn [[sql sdata]] 
+        (j/insert-multi! 
+         db-spec 
+         (first sql) 
+         (->> sdata second first) 
+         (->> sdata second rest)) sql) (map vector ins-sqls seq-data)))
 
 (defn- update-sheet [sheet start-cell-name data]
   (let [rows (row-cell-map start-cell-name data)]
@@ -313,7 +325,7 @@
     (->> (xls-to-seq wb-name wb-sheets ins-sqls) (seq-to-db db-spec ins-sqls))))
 
 (defn db-to-txt [db-spec sqls file-name]
-  (->> (db-to-seq db-spec sqls) (#(str/replace % #"}" "}\r\n")) (spit file-name)))
+  (->> (db-to-seq db-spec sqls) (#(str/replace % #"]" "]\r\n")) (spit file-name)))
 
 (defn d2t! [opts db-spec]
   (let [sql-file (:sql opts)

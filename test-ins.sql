@@ -1,4 +1,4 @@
 [
-[:tmp9087 [ca cb cc cd ce]]
-[:tmp9087 [ca cb]]
+[:tmp_objs [OBJECT_ID OBJECT_NAME OBJECT_TYPE ]]
+[:tmp_objs [object_id object_name]]
 ]
