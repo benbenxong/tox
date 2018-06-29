@@ -310,9 +310,9 @@
   (fn [_ ss _ data]
     (mapc (fn [[sheet sdata]] {(first sheet) sdata}) (map vector ss data))))
 
-(defn d2x! [opts db-spec]
+(defn d2x! [opts db-spec args]
   (let [sql-file (:sql opts)
-        sqls (get-sqls sql-file)
+        sqls (get-sqls sql-file args)
         wb-sheets (:sheet opts)
         wb-name (:outfile opts)]
     (->> (db-to-seq db-spec sqls) (seq-to-xls wb-name wb-sheets))))
@@ -327,9 +327,9 @@
 (defn db-to-txt [db-spec sqls file-name]
   (->> (db-to-seq db-spec sqls) (#(str/replace % #"]" "]\r\n")) (spit file-name)))
 
-(defn d2t! [opts db-spec]
+(defn d2t! [opts db-spec args]
   (let [sql-file (:sql opts)
-        sqls (get-sqls sql-file)
+        sqls (get-sqls sql-file args)
         outfile (:outfile opts)]
     (db-to-txt db-spec sqls outfile)))
 
@@ -337,14 +337,14 @@
 	opts)
 
 (defn -main [& args]
-  (let [{:keys [action options exit-message ok?]} (validate-args args)]
+  (let [{:keys [action options arguments exit-message ok?]} (validate-args args)]
     (if exit-message
       (exit (if ok? 0 1) exit-message)
       (f/attempt-all
        [ret (case action
-              "d2x" (d2x! options db)
+              "d2x" (d2x! options db arguments)
               "x2d" (x2d! options db)
-              "d2t" (d2t! options db))]
+              "d2t" (d2t! options db arguments))]
        (println "succeed!")
        (f/when-failed [e]
                       (f/message e))))))
