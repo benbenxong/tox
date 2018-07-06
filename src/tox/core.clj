@@ -99,7 +99,7 @@
   (str "The following errors occurred while parsing your command:\n\n"
        (str/join \newline errors)))
 
-(def actions #{"d2x" "x2d" "d2t"})
+(def actions #{"d2x" "x2d" "d2t" "x2s"})
 
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
@@ -186,26 +186,28 @@
 ;; )
 (defn xls-to-seq [wb-name wb-sheets ins-sqls]
   (let [wb (load-workbook wb-name)
-  		ss (reduce into [] wb-sheets)]
+  	ss (reduce into [] wb-sheets)]
     (if-not (every? map? wb-sheets)
       (f/fail "error: When xls-to-seq sheet Must be Map type (sheet(a1,a2)..)!")
-         (into [] (map-indexed vector (reduce (fn [ret [s q]] 
-                      (let [sname (first s)
-  		            [cell-begin cell-end] (second s)
-  		            col-begin (re-find #"[A-Za-z]+" cell-begin)
-  		            col-end (if cell-end (re-find #"[A-Za-z]+" cell-end))
-  		            row-begin (Integer. (re-find #"[0-9]+" cell-begin))
-  		            row-end (if cell-end (Integer. (re-find #"[0-9]+" cell-end)))
-  		            col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
-                                                   (seqb col-names col-begin col-end) (second q)))]
-                        (conj ret
-                              (into [] (cons (mapv name (second q)) (->> wb 
-                                   (select-sheet sname) 
-                                   (select-columns col-spec) 
-                                   (#(sub-rows % row-begin row-end))
-                                   (map (fn [r] (vec (vals r))))))))))
-                    []
-                    (map vector ss ins-sqls)))))))
+      (into [] (map-indexed 
+                vector 
+                (reduce (fn [ret [s q]] 
+                          (let [sname (first s)
+  		                [cell-begin cell-end] (second s)
+  		                col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		                col-end (if cell-end (re-find #"[A-Za-z]+" cell-end))
+  		                row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		                row-end (if cell-end (Integer. (re-find #"[0-9]+" cell-end)))
+  		                col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                                                       (seqb col-names col-begin col-end) (second q)))]
+                            (conj ret
+                                  (into [] (cons (mapv name (second q)) (->> wb 
+                                                                             (select-sheet sname) 
+                                                                             (select-columns col-spec) 
+                                                                             (#(sub-rows % row-begin row-end))
+                                                                             (map (fn [r] (vec (vals r))))))))))
+                        []
+                        (map vector ss ins-sqls)))))))
 
 ;; (let [{:keys [action options exit-message ok?]} (validate-args [
 ;;  "-o" "test-temp2.xlsx" "-w" "(sheet1,sheet2)" "-s" "test-ins.sql" "d2x"])
@@ -312,29 +314,42 @@
 
 (defn d2x! [opts db-spec args]
   (let [sql-file (:sql opts)
-        sqls (get-sqls sql-file args)
         wb-sheets (:sheet opts)
         wb-name (:outfile opts)]
-    (->> (db-to-seq db-spec sqls) (seq-to-xls wb-name wb-sheets))))
+    (if-not (and sql-file wb-sheets wb-name)
+      (f/fail "Paras error: d2x Needs :sql :sheet :outfile!")
+      (let [sqls (get-sqls sql-file args)]
+            (->> (db-to-seq db-spec sqls) (seq-to-xls wb-name wb-sheets))))))
 
 (defn x2d! [opts db-spec]
   (let [sql-file (:sql opts)
-        ins-sqls (get-ins-sqls sql-file)
         wb-sheets (:sheet opts)
         wb-name (:outfile opts)]
-    (->> (xls-to-seq wb-name wb-sheets ins-sqls) (seq-to-db db-spec ins-sqls))))
+    (if-not (and sql-file wb-sheets wb-name)
+      (f/fail "Paras error: x2d Needs :sql :sheet :outfile!")
+      (let [ins-sqls (get-ins-sqls sql-file)]
+        (->> (xls-to-seq wb-name wb-sheets ins-sqls) (seq-to-db db-spec ins-sqls))))))
 
 (defn db-to-txt [db-spec sqls file-name]
   (->> (db-to-seq db-spec sqls) (#(str/replace % #"]" "]\r\n")) (spit file-name)))
 
 (defn d2t! [opts db-spec args]
   (let [sql-file (:sql opts)
-        sqls (get-sqls sql-file args)
         outfile (:outfile opts)]
-    (db-to-txt db-spec sqls outfile)))
+    (if-not (and sqls outfile) 
+      (f/fail "Paras error: d2t Needs :sql :outfile!")
+      (let [sqls (get-sqls sql-file args)]
+        (db-to-txt db-spec sqls outfile)))))
 
-(defn x2d! [opts db-spec]
-	opts)
+(defn x2s! [opts]
+  (let [sql-file (:sql opts)
+        ins-sqls (get-ins-sqls sql-file)
+        wb-sheets (:sheet opts)
+        wb-name (:outfile opts)]
+    (if-not (and sql-file wb-sheets wb-name)
+      (f/fail "Paras error: x2s Needs :sql :sheet :outfile!")
+      (let [ins-sqls (get-ins-sqls sql-file)]
+        (xls-to-seq wb-name wb-sheets ins-sqls )))))
 
 (defn -main [& args]
   (let [{:keys [action options arguments exit-message ok?]} (validate-args args)]
@@ -344,7 +359,8 @@
        [ret (case action
               "d2x" (d2x! options db arguments)
               "x2d" (x2d! options db)
+              "x2s" (x2s! options)
               "d2t" (d2t! options db arguments))]
        (println "succeed!")
        (f/when-failed [e]
-                      (f/message e))))))
+                      (exit 1 (f/message e)))))))
