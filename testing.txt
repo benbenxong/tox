@@ -306,3 +306,97 @@ wb-name (:outfile opt)
 (extract-wb opt db-spec
 data-to-db)
 )
+;;"test-temp2.xlsx" (:sheet (:options (validate-args ["-w" "(sheet1(a2,b4),sheet2(a2,a6))" "q2x"])))
+(defn xls-to-seq [workbook-name,sheets]
+  (if (every? map? sheets)
+  (let [wb (load-workbook workbook-name)
+        ins-sqls (read-string (slurp "test-ins.sql"))]
+    (if (not= (count ss) (count ins-sqls))
+      (f/fail "error: Not equ between sheets and sqls!")
+      (let [data 
+            (reduce (fn [ret [s q]] 
+                      (let [sname (first s)
+  		            [cell-begin cell-end] (second s)
+  		            col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		            col-end (if cell-end (re-find #"[A-Za-z]+" cell-end))
+  		            row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		            row-end (if cell-end (Integer. (re-find #"[0-9]+" cell-end)))
+  		            col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                                                   (seqb col-names col-begin col-end) (second q)))]
+                        (conj ret
+                              (->> wb 
+                                   (select-sheet sname) 
+                                   (select-columns col-spec) 
+                                   (#(sub-rows % row-begin row-end))))))
+                    [] 
+                    (map vector ss ins-sqls))]
+        (f db-spec ss ins-sqls data)))))
+
+
+
+wb-name (:outfile opt)
+wb-sheets (:sheet opt)
+(let [{:keys [action options exit-message ok?]} (validate-args [
+"-o" "test-temp2.xlsx" "-w" "(sheet1(a2,b3),sheet2(a2,b3))" "-s" "test-ins.sql" "q2x"])]
+(xls-to-seq (:outfile options) (:sheet options) (get-ins-sqls "test-ins.sql"))
+;;(println (:outfile options) "," (:sheet options))
+;;(map vector (reduce into [] (:sheet options)) (get-ins-sqls "test-ins.sql"))
+)
+
+(defn xls-to-seq [wb-name wb-sheets ins-sqls]
+  (let [wb (load-workbook wb-name)
+  		ss (reduce into [] wb-sheets)]
+    (if-not (every? map? wb-sheets)
+      (f/fail "error: Not equ between sheets and sqls!")
+         (map-indexed hash-map (reduce (fn [ret [s q]] 
+                      (let [sname (first s)
+  		            [cell-begin cell-end] (second s)
+  		            col-begin (re-find #"[A-Za-z]+" cell-begin)
+  		            col-end (if cell-end (re-find #"[A-Za-z]+" cell-end))
+  		            row-begin (Integer. (re-find #"[0-9]+" cell-begin))
+  		            row-end (if cell-end (Integer. (re-find #"[0-9]+" cell-end)))
+  		            col-spec (into {} (map (fn [col name] [(keyword col) (keyword name)])
+                                                   (seqb col-names col-begin col-end) (second q)))]
+                        (conj ret
+                              (->> wb 
+                                   (select-sheet sname) 
+                                   (select-columns col-spec) 
+                                   (#(sub-rows % row-begin row-end))))))
+                    [] 
+                    (map vector ss ins-sqls))))))
+
+(let [{:keys [action options exit-message ok?]} (validate-args [
+ "-o" "test-temp2.xlsx" "-w" "(sheet1(a1,b3),sheet2(a2))" "-s" "test-ins.sql" "q2x"])
+ ss (:sheet options)
+ 
+ data (read-string "({0 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})}
+ {1 ({:ca 11.0, :cb 12.0} {:ca 21.0, :cb 22.0})})")]
+;;(update-wb1 "test-temp2.xlsx" ss data)
+;; (->> data first first second (map (fn [v] (vec (vals v)))))
+(doseq [[s d] (map vector (reduce into [] wb-sheets) data)] 
+(let [sheet (select-sheet (first (first s)) wb)
+              first-cell-name (first (second s))
+              col-begin (re-find #"[A-Za-z]+" first-cell-name)
+              row-begin (Integer. (re-find #"[0-9]+" first-cell-name))
+              data (->> d first second (mapv (fn [v] (vec (vals v)))))]
+              sheet)
+)
+(defn update-wb1 [wb-name wb-sheets seq-data]
+  (let [wb (load-workbook wb-name)
+	    ss (reduce into [] wb-sheets)]
+	    (if (not= (count ss) (count seq-data))
+	    	(f/fail "Not equ count between wb-sheets and seq-data")
+    		(do
+    		(doseq [[s d] (map vector ss seq-data)]
+        		(let [sheet (select-sheet (first (first s)) wb)
+              first-cell-name (first (second s))
+              col-begin (re-find #"[A-Za-z]+" first-cell-name)
+              row-begin (Integer. (re-find #"[0-9]+" first-cell-name))
+              data (->> d first second (mapv (fn [v] (vec (vals v)))))]
+          (doseq [r data]
+          	(doseq [[col-name row-num cell-data] 
+          	        (map vector (seqb col-names col-begin)
+          	        		    (range row-begin 10000000)
+          	        		    r)]
+          	        		    (set-cell! (select-cell (str col-name row-num) sheet) cell-data)))))
+    (save-workbook! wb-name wb)))))

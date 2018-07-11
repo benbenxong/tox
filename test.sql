@@ -1,4 +1,3 @@
-select object_name oname,object_id,created,object_type from all_objects where rownum<400;
+select object_id,object_name,object_type,created,owner from all_objects where rownum<&1;
 
-select object_name oname,created,object_type from all_objects where rownum<50
-;
+select object_id id,object_name name,object_type type,created from all_objects where rownum<&2;
