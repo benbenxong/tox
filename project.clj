@@ -14,7 +14,8 @@
                  [clojure.jdbc/clojure.jdbc-c3p0 "0.3.3"]
                  [instaparse "1.4.8"]
                  [mysql/mysql-connector-java "5.1.6"] 
-                 [failjure "1.3.0"]]
+                 [failjure "1.3.0"]
+                 [org.apache.poi/poi "3.17"]]
   :main ^:skip-aot tox.core
   :target-path "target/%s"
   :resource-paths ["shared" "resources"]

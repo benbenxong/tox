@@ -22,12 +22,28 @@
   (-> (or ns (class *ns*))
       .getProtectionDomain .getCodeSource .getLocation .toURI))
 
+<<<<<<< HEAD
+(def db- (:db (read-string (slurp "db.conf"))))
+
+(defn get-db []
+  (let [fname1 (str (System/getenv "temp")
+                    (java.io.File/separator) 
+                    "tox"
+                    (java.io.File/separator) 
+                    "db.conf")
+        fname2 "db.conf"]
+    (if (.exists (io/as-file fname1))
+      (:db (read-string (slurp fname1)))
+      (:db (read-string (slurp fname2)))
+      )))
+=======
 (def db (:db (read-string 
               (slurp (str (System/getenv "temp")
                           (java.io.File/separator)
                           "tox" (java.io.File/separator)
                           "db.conf")))))
 
+>>>>>>> develop
 ;;(time (j/query db ["select sysdate from dual"]))
 
 ;; (def cells (j/query db
@@ -251,8 +267,13 @@
          (->> sdata second first) 
          (->> sdata second rest)) sql) (map vector ins-sqls seq-data)))
 
+<<<<<<< HEAD
+(defn update-sheet [sheet start-cell-name data]
+  (let [rows (row-cell-map start-cell-name (first data))]
+=======
 (defn- update-sheet [sheet start-cell-name data]
   (let [rows (row-cell-map start-cell-name data)]
+>>>>>>> develop
     (doseq [r rows] 
       (doseq [c r]
         (set-cell! (select-cell (str (nth c 0) (nth c 1)) sheet) (nth c 2))))))
@@ -282,7 +303,8 @@
         wb (load-workbook wb-name)
         ss-opt (:sheet opt)
         ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
-        ins-sqls (read-string (slurp "test-ins.sql"))]
+        sql-file (:sql opt)
+        ins-sqls (read-string (slurp sql-file))]
     (if (not= (count ss) (count ins-sqls))
       (f/fail "error: Not equ between sheets and sqls!")
       (let [data 
@@ -322,6 +344,17 @@
             (->> (db-to-seq db-spec sqls) (seq-to-xls wb-name wb-sheets))))))
 
 (defn x2d! [opts db-spec]
+<<<<<<< HEAD
+  (let [wb-name (:outfile opts)
+        wb (load-workbook wb-name)
+        ss-opt (:sheet opts)
+        ss (for [s ss-opt] (if (map? s) (first (vec s)) [s ["A1" "A1"]]))
+        sql-file (:sql opts)
+        ins-sqls (read-string (slurp sql-file))
+        ] 
+    (extract-wb opts db-spec data-to-db)
+    ))
+=======
   (let [sql-file (:sql opts)
         wb-sheets (:sheet opts)
         wb-name (:outfile opts)]
@@ -336,7 +369,7 @@
 (defn d2t! [opts db-spec args]
   (let [sql-file (:sql opts)
         outfile (:outfile opts)]
-    (if-not (and sql-file outfile) 
+    (if-not (and sqls outfile) 
       (f/fail "Paras error: d2t Needs :sql :outfile!")
       (let [sqls (get-sqls sql-file args)]
         (db-to-txt db-spec sqls outfile)))))
@@ -350,6 +383,7 @@
       (f/fail "Paras error: x2s Needs :sql :sheet :outfile!")
       (let [ins-sqls (get-ins-sqls sql-file)]
         (xls-to-seq wb-name wb-sheets ins-sqls )))))
+>>>>>>> develop
 
 (defn -main [& args]
   (let [{:keys [action options arguments exit-message ok?]} (validate-args args)]

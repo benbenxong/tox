@@ -336,7 +336,7 @@
 (defn d2t! [opts db-spec args]
   (let [sql-file (:sql opts)
         outfile (:outfile opts)]
-    (if-not (and sql-file outfile) 
+    (if-not (and sqls outfile) 
       (f/fail "Paras error: d2t Needs :sql :outfile!")
       (let [sqls (get-sqls sql-file args)]
         (db-to-txt db-spec sqls outfile)))))
